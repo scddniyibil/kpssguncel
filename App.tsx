@@ -9,7 +9,7 @@ const Toast: React.FC<{ message: string; onClose: () => void; }> = ({ message, o
   useEffect(() => {
     const timer = setTimeout(() => {
       onClose();
-    }, 3000);
+    }, 4000); // Biraz daha uzun süre ekranda kalsın
 
     return () => clearTimeout(timer);
   }, [onClose]);
@@ -139,9 +139,9 @@ const App: React.FC = () => {
     if (credentials.provider) {
        // REAL SOCIAL LOGIN
        const { error } = await supabase.auth.signInWithOAuth({ 
-           provider: credentials.provider as any,
+           provider: 'google',
            options: {
-               redirectTo: window.location.origin 
+               redirectTo: 'https://kpssguncel-git-main-scddniyibils-projects.vercel.app'
            }
        });
        if (error) setAuthError(error.message);
@@ -167,7 +167,7 @@ const App: React.FC = () => {
     if (error) {
       setAuthError(error.message);
     } else {
-      setToastMessage('Kayıt başarılı! Lütfen e-postanızı onaylayın.');
+      setToastMessage('Kayıt oldunuz! Lütfen mailinizi kontrol edip hesabınızı aktif edin.');
     }
   };
 
@@ -205,10 +205,11 @@ const App: React.FC = () => {
   const handleSaveCard = async (cardData: Omit<Card, 'id'> | Card) => {
     if (!currentUser || currentUser.role !== Role.ADMIN) return;
 
-    const cardsToSave = Array.isArray(cardData) ? cardData : [cardData];
+    // Single card save logic
+    if (Array.isArray(cardData)) return; // AI Generator removed, so array handling not strictly needed but kept safe
     
     try {
-      if ('id' in cardData && !Array.isArray(cardData)) {
+      if ('id' in cardData) {
         // UPDATE
         const { error } = await supabase
           .from('cards')
@@ -225,16 +226,16 @@ const App: React.FC = () => {
 
       } else {
         // INSERT
-        const payload = cardsToSave.map(c => ({
-          category: c.category,
-          text: c.text,
-          image_url: c.imageUrl,
-          background_color: c.backgroundColor
-        }));
+        const payload = {
+          category: cardData.category,
+          text: cardData.text,
+          image_url: cardData.imageUrl,
+          background_color: cardData.backgroundColor
+        };
 
         const { error } = await supabase.from('cards').insert(payload);
         if (error) throw error;
-        setToastMessage(`${payload.length} kart eklendi!`);
+        setToastMessage('Kart eklendi!');
       }
       await fetchCards(); 
     } catch (err: any) {

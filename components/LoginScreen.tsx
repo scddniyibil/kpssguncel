@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { LogoIcon, GoogleIcon, FacebookIcon, ChevronLeftIcon } from './Icons';
+import { LogoIcon, GoogleIcon, ChevronLeftIcon } from './Icons';
 
 interface LoginScreenProps {
   onLogin: (credentials: { userId?: string; password?: string; provider?: string }) => void;
@@ -103,12 +103,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignUp, onResetPas
                                 <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-300 dark:border-gray-600"></div></div>
                                 <div className="relative flex justify-center text-sm"><span className="px-2 bg-base-100 dark:bg-dark-card text-gray-500 dark:text-dark-text-secondary">veya</span></div>
                             </div>
-                            <div className="mt-6 grid grid-cols-2 gap-3">
+                            <div className="mt-6 grid grid-cols-1 gap-3">
                                 <button onClick={() => onLogin({provider: 'google'})} className="w-full inline-flex justify-center items-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-sm font-medium text-gray-700 dark:text-dark-text hover:bg-gray-50 dark:hover:bg-gray-600">
-                                    <GoogleIcon className="w-5 h-5 mr-2" /> Google
-                                </button>
-                                <button onClick={() => onLogin({provider: 'facebook'})} className="w-full inline-flex justify-center items-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-sm font-medium text-gray-700 dark:text-dark-text hover:bg-gray-50 dark:hover:bg-gray-600">
-                                    <FacebookIcon className="w-5 h-5 mr-2 fill-blue-600 dark:fill-white" /> Facebook
+                                    <GoogleIcon className="w-5 h-5 mr-2" /> Google ile Devam Et
                                 </button>
                             </div>
                         </div>

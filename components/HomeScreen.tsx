@@ -6,10 +6,8 @@ import AdminModal from './AdminModal';
 import AIQuizModal from './AIQuizModal';
 import CardCarousel from './CardCarousel';
 import ThemeToggle from './ThemeToggle';
-import AICardGenerator from './AICardGenerator';
-import UpdatePasswordModal from './UpdatePasswordModal'; // New Modal Import
-import { LogoIcon, PlusIcon, BookIcon, GlobeIcon, ScaleIcon, LightbulbIcon, PaletteIcon, BrainIcon, SparklesIcon, KeyIcon } from './Icons';
-// Note: HeartIcon removed from imports if not used in main view, but it is used in categoryIcons object. Keeping imports safe.
+import UpdatePasswordModal from './UpdatePasswordModal';
+import { LogoIcon, PlusIcon, BookIcon, GlobeIcon, ScaleIcon, LightbulbIcon, PaletteIcon, BrainIcon, KeyIcon } from './Icons';
 import { HeartIcon } from './Icons';
 
 interface HomeScreenProps {
@@ -22,7 +20,7 @@ interface HomeScreenProps {
   onSaveCard: (cardData: Omit<Card, 'id'> | Card | Omit<Card, 'id'>[]) => void;
   onDeleteCard: (cardId: string) => void;
   onToggleFavorite: (cardId: string) => void;
-  onUpdatePassword: (newPassword: string) => Promise<void>; // New Prop
+  onUpdatePassword: (newPassword: string) => Promise<void>;
 }
 
 const categoryIcons: { [key: string]: React.FC<{className: string}> } = {
@@ -58,8 +56,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
-  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false); // State for password modal
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [cardToEdit, setCardToEdit] = useState<Card | null>(null);
   const [viewingCategory, setViewingCategory] = useState<Category | null>(null);
 
@@ -188,18 +185,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
       {currentUser?.role === Role.ADMIN && (
         <div className="fixed bottom-8 right-8 flex flex-col space-y-4 items-end z-40">
             <button 
-              onClick={() => setIsAIModalOpen(true)}
-              className="bg-purple-600 text-white p-4 rounded-full shadow-lg hover:bg-purple-700 transition-transform transform hover:scale-110"
-              aria-label="AI ile Kart Ekle"
-              title="AI ile Kart Oluştur"
-            >
-              <SparklesIcon className="w-8 h-8"/>
-            </button>
-            <button 
             onClick={() => { setCardToEdit(null); setIsModalOpen(true); }} 
             className="bg-accent text-white p-4 rounded-full shadow-lg hover:bg-secondary transition-transform transform hover:scale-110"
             aria-label="Yeni Kart Ekle"
-            title="Manuel Kart Ekle"
+            title="Yeni Kart Ekle"
             >
             <PlusIcon className="w-8 h-8"/>
             </button>
@@ -219,19 +208,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
       />
 
       {currentUser?.role === Role.ADMIN && (
-          <>
             <AdminModal 
                 isOpen={isModalOpen} 
                 onClose={() => setIsModalOpen(false)}
                 onSave={onSaveCard}
                 cardToEdit={cardToEdit}
             />
-            <AICardGenerator
-                isOpen={isAIModalOpen}
-                onClose={() => setIsAIModalOpen(false)}
-                onSaveCards={onSaveCard}
-            />
-          </>
       )}
     </div>
   );

@@ -72,7 +72,7 @@ const CardCarousel: React.FC<CardCarouselProps> = ({
                 </>
             )}
             
-            {/* Kart Boyutları burada ayarlanıyor: w-[95vw] max-w-6xl h-[85vh] */}
+            {/* Kart Boyutları: w-[95vw] max-w-6xl h-[85vh] */}
             <div className="w-[95vw] max-w-6xl h-[85vh] flex flex-col relative rounded-3xl shadow-2xl overflow-hidden animate-pop-in bg-base-100 dark:bg-dark-card">
                  
                  {/* Kapatma Butonu */}
@@ -92,9 +92,8 @@ const CardCarousel: React.FC<CardCarouselProps> = ({
                             alt={currentCard.text}
                             onError={(e) => {
                                 const target = e.target as HTMLImageElement;
-                                // Eğer resim yüklenemezse (404/403), placeholder göster veya gizle
                                 target.onerror = null; 
-                                target.src = "https://via.placeholder.com/800x400?text=Resim+Yüklenemedi";
+                                target.src = "https://via.placeholder.com/800x600?text=Resim+Yuklenemedi";
                             }} 
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60"></div>
@@ -116,7 +115,7 @@ const CardCarousel: React.FC<CardCarouselProps> = ({
                         <div className="flex items-center space-x-6 pr-4">
                           {(currentUser.role === Role.USER || currentUser.role === Role.ADMIN) && (
                             <button
-                              onClick={() => onToggleFavorite(currentCard.id)}
+                              onClick={(e) => { e.stopPropagation(); onToggleFavorite(currentCard.id); }}
                               className="group flex flex-col items-center justify-center transition-transform active:scale-90"
                               aria-label="Favorilere ekle"
                             >
@@ -126,14 +125,14 @@ const CardCarousel: React.FC<CardCarouselProps> = ({
                           {currentUser.role === Role.ADMIN && (
                             <>
                               <button
-                                onClick={() => onEdit(currentCard)}
+                                onClick={(e) => { e.stopPropagation(); onEdit(currentCard); }}
                                 className="group transition-transform active:scale-90"
                                 aria-label="Düzenle"
                               >
                                 <EditIcon className="w-10 h-10 text-gray-600 dark:text-gray-400 group-hover:text-blue-500" />
                               </button>
                               <button
-                                onClick={() => onDelete(currentCard.id)}
+                                onClick={(e) => { e.stopPropagation(); onDelete(currentCard.id); }}
                                 className="group transition-transform active:scale-90"
                                 aria-label="Sil"
                               >

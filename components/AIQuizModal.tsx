@@ -77,24 +77,26 @@ const AIQuizModal: React.FC<AIQuizModalProps> = ({ isOpen, onClose, cards }) => 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
-      // Updated prompt to force more false statements
+      // Updated prompt to force a 50/50 balance
       const prompt = `
       Sen uzman bir KPSS eğitmenisin.
       Referans Bilgi: "${card.text}"
       
       Görevin: Bu bilgiyi kullanarak öğrenciyi sınayacak bir Doğru/Yanlış sorusu oluşturmak.
       
-      TALİMAT:
-      1. Yazı tura at.
-      2. Eğer TURA gelirse: Bilgiyi olduğu gibi kullanarak DOĞRU bir cümle kur.
-      3. Eğer YAZI gelirse: Bilgi içindeki önemli bir detayı (Tarih, İsim, Sayı veya Mekan) ustaca ve inandırıcı bir şekilde değiştirerek YANLIŞ bir cümle kur.
-      4. Cümle çok kısa veya çok basit olmasın, sınav formatına uygun olsun.
+      ÇOK ÖNEMLİ TALİMAT (DENGE):
+      - Ürettiğin soruların istatistiksel olarak tam olarak %50'si DOĞRU, %50'si YANLIŞ olmalıdır.
+      - Bu seferki soru için rastgele bir seçim yap (Yazı/Tura gibi).
+      
+      Seçimine Göre:
+      - Eğer DOĞRU seçtiysen: Bilgiyi biraz farklı kelimelerle ama anlamı bozmadan DOĞRU bir ifade olarak yaz.
+      - Eğer YANLIŞ seçtiysen: Bilgideki kritik bir detayı (Yıl, Kişi, Yer, Sayı) değiştirerek inandırıcı bir YANLIŞ ifade yaz.
       
       Yanıtı JSON formatında ver:
       {
         "statement": "Soru cümlesi",
         "isTrue": true/false,
-        "explanation": "Neden doğru veya yanlış olduğunun kısa açıklaması"
+        "explanation": "Neden doğru veya yanlış olduğunun kısa ve net açıklaması"
       }
       `;
 
@@ -159,6 +161,7 @@ const AIQuizModal: React.FC<AIQuizModalProps> = ({ isOpen, onClose, cards }) => 
   };
 
   const getScoreMessage = () => {
+      if (totalQuestions === 0) return "";
       const percentage = (score / totalQuestions) * 100;
       if (percentage === 100) return "Mükemmel! Hepsini bildin.";
       if (percentage >= 70) return "Harika iş çıkardın!";

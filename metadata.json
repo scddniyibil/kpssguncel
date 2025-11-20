@@ -1,0 +1,5 @@
+{
+  "name": "KPSS Bilgi Kartları",
+  "description": "KPSS (Public Personnel Selection Examination) current information flashcards application. Users can browse, favorite, and manage study cards across various categories.",
+  "requestFramePermissions": []
+}

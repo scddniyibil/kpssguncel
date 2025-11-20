@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, Role, User } from '../types';
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, HeartIcon, EditIcon, DeleteIcon } from './Icons';
@@ -58,61 +59,85 @@ const CardCarousel: React.FC<CardCarouselProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 dark:bg-black/90 z-50 flex flex-col items-center justify-center animate-fade-in" onClick={onClose}>
-        <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 p-2 rounded-full bg-black/20 hover:bg-black/40 text-white dark:bg-gray-800/50 dark:hover:bg-gray-700/70 z-50 transition-colors">
-            <CloseIcon className="w-8 h-8"/>
-        </button>
-
-        <div className="relative w-full h-full flex items-center justify-center p-4 md:p-8" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center animate-fade-in" onClick={onClose}>
+        <div className="relative w-full h-full flex items-center justify-center p-2 md:p-4" onClick={e => e.stopPropagation()}>
             {cards.length > 1 && (
                 <>
-                    <button onClick={handlePrev} className="absolute left-2 md:left-8 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/20 hover:bg-black/40 text-white dark:bg-gray-800/50 dark:hover:bg-gray-700/70 z-50 transition-colors">
-                        <ChevronLeftIcon className="w-8 h-8" />
+                    <button onClick={handlePrev} className="absolute left-2 md:left-8 top-1/2 -translate-y-1/2 p-3 md:p-4 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 z-50 transition-all backdrop-blur-sm">
+                        <ChevronLeftIcon className="w-8 h-8 md:w-10 md:h-10" />
                     </button>
-                    <button onClick={handleNext} className="absolute right-2 md:right-8 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/20 hover:bg-black/40 text-white dark:bg-gray-800/50 dark:hover:bg-gray-700/70 z-50 transition-colors">
-                        <ChevronRightIcon className="w-8 h-8" />
+                    <button onClick={handleNext} className="absolute right-2 md:right-8 top-1/2 -translate-y-1/2 p-3 md:p-4 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 z-50 transition-all backdrop-blur-sm">
+                        <ChevronRightIcon className="w-8 h-8 md:w-10 md:h-10" />
                     </button>
                 </>
             )}
             
-            <div className="w-full max-w-4xl h-full max-h-[80vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden animate-pop-in bg-base-100 dark:bg-dark-card">
+            {/* Kart Boyutları burada ayarlanıyor: w-[95vw] max-w-6xl h-[85vh] */}
+            <div className="w-[95vw] max-w-6xl h-[85vh] flex flex-col relative rounded-3xl shadow-2xl overflow-hidden animate-pop-in bg-base-100 dark:bg-dark-card">
+                 
+                 {/* Kapatma Butonu */}
+                 <button 
+                    onClick={onClose} 
+                    className="absolute top-4 right-4 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white z-[60] transition-transform hover:scale-110 backdrop-blur-sm border border-white/20"
+                    title="Kapat"
+                 >
+                    <CloseIcon className="w-8 h-8" />
+                 </button>
+
                  {currentCard.imageUrl && (
-                    <div className="w-full h-1/2 md:h-2/3 bg-gray-200 dark:bg-gray-800">
-                        <img className="w-full h-full object-contain" src={currentCard.imageUrl} alt={currentCard.text} />
+                    <div className="w-full h-3/5 md:h-2/3 bg-gray-100 dark:bg-gray-800 relative group">
+                        <img 
+                            className="w-full h-full object-cover" 
+                            src={currentCard.imageUrl} 
+                            alt={currentCard.text}
+                            onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                // Eğer resim yüklenemezse (404/403), placeholder göster veya gizle
+                                target.onerror = null; 
+                                target.src = "https://via.placeholder.com/800x400?text=Resim+Yüklenemedi";
+                            }} 
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60"></div>
                     </div>
                 )}
-                <div className="p-8 flex-grow flex flex-col justify-center items-center text-center" style={cardContentStyle}>
-                    <p className="text-xl md:text-3xl lg:text-4xl font-bold text-gray-800 dark:text-white">{currentCard.text}</p>
+                
+                <div className={`flex-grow flex flex-col justify-center items-center text-center p-6 md:p-12 overflow-y-auto ${!currentCard.imageUrl ? 'h-full' : ''}`} style={cardContentStyle}>
+                    <p className="text-2xl md:text-4xl lg:text-5xl font-bold text-gray-800 dark:text-white leading-relaxed max-w-4xl mx-auto drop-shadow-sm">
+                        {currentCard.text}
+                    </p>
                 </div>
-                <div className="p-4 bg-gray-100 dark:bg-gray-900/50 flex items-center justify-between">
-                    <p className="text-sm font-semibold text-gray-600 dark:text-dark-text-secondary">{currentIndex + 1} / {cards.length}</p>
+                
+                <div className="p-6 bg-gray-50 dark:bg-gray-900/80 flex items-center justify-between border-t border-gray-200 dark:border-gray-700">
+                    <p className="text-xl font-bold text-gray-500 dark:text-gray-400 pl-4">
+                        {currentIndex + 1} / {cards.length}
+                    </p>
                     
                      {currentUser && (
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-6 pr-4">
                           {(currentUser.role === Role.USER || currentUser.role === Role.ADMIN) && (
                             <button
                               onClick={() => onToggleFavorite(currentCard.id)}
-                              className="p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
+                              className="group flex flex-col items-center justify-center transition-transform active:scale-90"
                               aria-label="Favorilere ekle"
                             >
-                              <HeartIcon className={`w-6 h-6 ${isFavorite ? 'text-red-500 fill-current' : 'text-gray-500 dark:text-gray-300'}`} />
+                              <HeartIcon className={`w-12 h-12 transition-colors ${isFavorite ? 'text-red-500 fill-current drop-shadow-md' : 'text-gray-400 dark:text-gray-500 group-hover:text-red-400'}`} />
                             </button>
                           )}
                           {currentUser.role === Role.ADMIN && (
                             <>
                               <button
                                 onClick={() => onEdit(currentCard)}
-                                className="p-2 rounded-full hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
+                                className="group transition-transform active:scale-90"
                                 aria-label="Düzenle"
                               >
-                                <EditIcon className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+                                <EditIcon className="w-10 h-10 text-gray-600 dark:text-gray-400 group-hover:text-blue-500" />
                               </button>
                               <button
                                 onClick={() => onDelete(currentCard.id)}
-                                className="p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
+                                className="group transition-transform active:scale-90"
                                 aria-label="Sil"
                               >
-                                <DeleteIcon className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+                                <DeleteIcon className="w-10 h-10 text-gray-600 dark:text-gray-400 group-hover:text-red-500" />
                               </button>
                             </>
                           )}

@@ -77,13 +77,25 @@ const AIQuizModal: React.FC<AIQuizModalProps> = ({ isOpen, onClose, cards }) => 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
-      // Faster prompt for True/False
+      // Updated prompt to force more false statements
       const prompt = `
+      Sen uzman bir KPSS eğitmenisin.
       Referans Bilgi: "${card.text}"
       
-      Görevin: Bu bilgiye dayanarak Doğru/Yanlış testi için bir cümle oluştur.
-      1. Rastgele seç: Ya bilgiyi olduğu gibi doğru bir cümle yap, ya da içindeki önemli bir detayı (isim, tarih, yer, sayı) değiştirerek yanlış bir cümle yap.
-      2. Yanıtı JSON olarak ver.
+      Görevin: Bu bilgiyi kullanarak öğrenciyi sınayacak bir Doğru/Yanlış sorusu oluşturmak.
+      
+      TALİMAT:
+      1. Yazı tura at.
+      2. Eğer TURA gelirse: Bilgiyi olduğu gibi kullanarak DOĞRU bir cümle kur.
+      3. Eğer YAZI gelirse: Bilgi içindeki önemli bir detayı (Tarih, İsim, Sayı veya Mekan) ustaca ve inandırıcı bir şekilde değiştirerek YANLIŞ bir cümle kur.
+      4. Cümle çok kısa veya çok basit olmasın, sınav formatına uygun olsun.
+      
+      Yanıtı JSON formatında ver:
+      {
+        "statement": "Soru cümlesi",
+        "isTrue": true/false,
+        "explanation": "Neden doğru veya yanlış olduğunun kısa açıklaması"
+      }
       `;
 
       const response = await ai.models.generateContent({

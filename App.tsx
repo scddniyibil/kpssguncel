@@ -98,12 +98,13 @@ const App: React.FC = () => {
     if (error) console.error('Error fetching cards:', error);
     else {
       // FIX: Map Supabase snake_case columns to frontend camelCase properties
+      // Added fallbacks for different column naming conventions
       const mappedCards: Card[] = (data || []).map((item: any) => ({
         id: item.id,
         category: item.category,
         text: item.text,
-        imageUrl: item.image_url, // snake_case from DB -> camelCase for App
-        backgroundColor: item.background_color, // snake_case from DB -> camelCase for App
+        imageUrl: item.image_url || item.imageUrl, 
+        backgroundColor: item.background_color || item.backgroundColor || item.backgroundcolor || '#ffffff', 
         created_at: item.created_at
       }));
       setCards(mappedCards);
@@ -162,6 +163,9 @@ const App: React.FC = () => {
     const { error } = await supabase.auth.signUp({
       email: credentials.email,
       password: credentials.password,
+      options: {
+        emailRedirectTo: 'https://kpssguncel-git-main-scddniyibils-projects.vercel.app'
+      }
     });
 
     if (error) {
@@ -174,7 +178,7 @@ const App: React.FC = () => {
   const handleResetPassword = async (email: string) => {
     setAuthError(null);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin,
+      redirectTo: 'https://kpssguncel-git-main-scddniyibils-projects.vercel.app',
     });
 
     if (error) {
@@ -206,7 +210,7 @@ const App: React.FC = () => {
     if (!currentUser || currentUser.role !== Role.ADMIN) return;
 
     // Single card save logic
-    if (Array.isArray(cardData)) return; // AI Generator removed, so array handling not strictly needed but kept safe
+    if (Array.isArray(cardData)) return; 
     
     try {
       if ('id' in cardData) {
@@ -281,33 +285,36 @@ const App: React.FC = () => {
     }
   };
 
-  if (isLoading) {
-     return (
-       <div className="min-h-screen flex items-center justify-center bg-neutral dark:bg-dark-bg">
-         <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-primary"></div>
-       </div>
-     )
-  }
-
-  if (!currentUser) {
-    return <LoginScreen onLogin={handleLogin} onSignUp={handleSignUp} onResetPassword={handleResetPassword} error={authError} />;
-  }
-
   return (
     <>
-      <HomeScreen 
-            currentUser={currentUser} 
-            onLogout={handleLogout} 
-            theme={theme} 
-            toggleTheme={toggleTheme}
-            cards={cards}
-            favorites={favorites}
-            onSaveCard={handleSaveCard} 
-            onDeleteCard={handleDeleteCard}
-            onToggleFavorite={handleToggleFavorite}
-            onUpdatePassword={handleUpdatePassword}
-        />
-        {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage('')} />}
+      {isLoading ? (
+         <div className="min-h-screen flex items-center justify-center bg-neutral dark:bg-dark-bg">
+           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-primary"></div>
+         </div>
+      ) : (
+        currentUser ? (
+            <HomeScreen 
+                currentUser={currentUser} 
+                onLogout={handleLogout} 
+                theme={theme} 
+                toggleTheme={toggleTheme}
+                cards={cards}
+                favorites={favorites}
+                onSaveCard={handleSaveCard} 
+                onDeleteCard={handleDeleteCard}
+                onToggleFavorite={handleToggleFavorite}
+                onUpdatePassword={handleUpdatePassword}
+            />
+        ) : (
+            <LoginScreen 
+                onLogin={handleLogin} 
+                onSignUp={handleSignUp} 
+                onResetPassword={handleResetPassword} 
+                error={authError} 
+            />
+        )
+      )}
+      {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage('')} />}
     </>
   );
 };

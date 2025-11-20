@@ -36,27 +36,27 @@ const CardComponent: React.FC<CardComponentProps> = ({ card, currentUser, isFavo
           {currentUser.role === Role.USER && (
             <button
               onClick={() => onToggleFavorite(card.id)}
-              className="p-2 rounded-full hover:bg-red-100 transition-colors"
+              className="p-3 rounded-full hover:bg-red-100 transition-colors"
               aria-label="Favorilere ekle"
             >
-              <HeartIcon className={`w-6 h-6 ${isFavorite ? 'text-red-500 fill-current' : 'text-gray-500'}`} />
+              <HeartIcon className={`w-8 h-8 ${isFavorite ? 'text-red-500 fill-current' : 'text-gray-500'}`} />
             </button>
           )}
           {currentUser.role === Role.ADMIN && (
             <>
               <button
                 onClick={() => onEdit(card)}
-                className="p-2 rounded-full hover:bg-blue-100 transition-colors"
+                className="p-3 rounded-full hover:bg-blue-100 transition-colors"
                 aria-label="Düzenle"
               >
-                <EditIcon className="w-6 h-6 text-gray-600" />
+                <EditIcon className="w-7 h-7 text-gray-600" />
               </button>
               <button
                 onClick={() => onDelete(card.id)}
-                className="p-2 rounded-full hover:bg-red-100 transition-colors"
+                className="p-3 rounded-full hover:bg-red-100 transition-colors"
                 aria-label="Sil"
               >
-                <DeleteIcon className="w-6 h-6 text-gray-600" />
+                <DeleteIcon className="w-7 h-7 text-gray-600" />
               </button>
             </>
           )}

@@ -129,7 +129,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
              >
                 <span className="relative px-6 py-3.5 transition-all ease-in duration-75 bg-white dark:bg-gray-900 rounded-md group-hover:bg-opacity-0 flex items-center space-x-2">
                     <BrainIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400 group-hover:text-white" />
-                    <span className="text-lg font-bold">AI Sınav Modu'nu Başlat</span>
+                    <span className="text-lg font-bold">Sınav Modu'nu Başlat</span>
                 </span>
              </button>
         </div>

@@ -17,6 +17,10 @@ export interface Card {
   imageUrl?: string;
   backgroundColor?: string;
   created_at?: string;
+  // New Quiz Fields
+  quizQuestion?: string;
+  quizIsTrue?: boolean;
+  quizExplanation?: string;
 }
 
 export type Category = string;

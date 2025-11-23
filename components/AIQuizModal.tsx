@@ -1,6 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI, Type } from "@google/genai";
+import React, { useState, useEffect } from 'react';
 import { Card } from '../types';
 import { CATEGORIES } from '../constants';
 import { CloseIcon, BrainIcon, SparklesIcon } from './Icons';
@@ -65,76 +64,29 @@ const AIQuizModal: React.FC<AIQuizModalProps> = ({ isOpen, onClose, cards }) => 
     setScore(0);
     
     // Start first question
-    generateQuestion(shuffled[0]);
+    loadQuestion(shuffled[0]);
   };
 
-  const generateQuestion = async (card: Card) => {
+  const loadQuestion = (card: Card) => {
     setCurrentCard(card);
     setQuizStatement(null);
     setUserAnswer(null);
     setError(null);
 
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      
-      // Updated prompt to force a 50/50 balance
-      const prompt = `
-      Sen uzman bir KPSS eğitmenisin.
-      Referans Bilgi: "${card.text}"
-      
-      Görevin: Bu bilgiyi kullanarak öğrenciyi sınayacak bir Doğru/Yanlış sorusu oluşturmak.
-      
-      ÇOK ÖNEMLİ TALİMAT (DENGE):
-      - Ürettiğin soruların istatistiksel olarak tam olarak %50'si DOĞRU, %50'si YANLIŞ olmalıdır.
-      - Bu seferki soru için rastgele bir seçim yap (Yazı/Tura gibi).
-      
-      Seçimine Göre:
-      - Eğer DOĞRU seçtiysen: Bilgiyi biraz farklı kelimelerle ama anlamı bozmadan DOĞRU bir ifade olarak yaz.
-      - Eğer YANLIŞ seçtiysen: Bilgideki kritik bir detayı (Yıl, Kişi, Yer, Sayı) değiştirerek inandırıcı bir YANLIŞ ifade yaz.
-      
-      Yanıtı JSON formatında ver:
-      {
-        "statement": "Soru cümlesi",
-        "isTrue": true/false,
-        "explanation": "Neden doğru veya yanlış olduğunun kısa ve net açıklaması"
-      }
-      `;
+    // Use stored quiz data OR fallback if not set
+    const statement = card.quizQuestion || card.text;
+    const isTrue = card.quizIsTrue !== undefined ? card.quizIsTrue : true;
+    const explanation = card.quizExplanation || "Bu kart için özel bir açıklama girilmemiştir.";
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              statement: { type: Type.STRING, description: "Soru cümlesi." },
-              isTrue: { type: Type.BOOLEAN, description: "Cümle doğru mu yanlış mı?" },
-              explanation: { type: Type.STRING, description: "Kısaca doğrusunu veya neden yanlış olduğunu açıkla." }
-            },
-            required: ["statement", "isTrue", "explanation"],
-          },
-        },
-      });
-
-      if (response.text) {
-        const data = JSON.parse(response.text);
-        setQuizStatement(data);
+    // Simulate a brief loading for UX transition
+    setTimeout(() => {
+        setQuizStatement({
+            statement,
+            isTrue,
+            explanation
+        });
         setStep('quiz');
-      } else {
-        throw new Error("AI boş yanıt döndü.");
-      }
-
-    } catch (err) {
-      console.error(err);
-      // If AI fails, just show the original card text as a TRUE statement fallback
-      setQuizStatement({
-        statement: card.text,
-        isTrue: true,
-        explanation: "Bu bilgi kartta yazdığı gibi doğrudur."
-      });
-      setStep('quiz');
-    }
+    }, 500);
   };
 
   const handleAnswer = (answer: boolean) => {
@@ -154,7 +106,7 @@ const AIQuizModal: React.FC<AIQuizModalProps> = ({ isOpen, onClose, cards }) => 
 
     if (remaining.length > 0) {
       setStep('loading');
-      generateQuestion(remaining[0]);
+      loadQuestion(remaining[0]);
     } else {
       setStep('result');
     }
@@ -179,7 +131,7 @@ const AIQuizModal: React.FC<AIQuizModalProps> = ({ isOpen, onClose, cards }) => 
         <div className="flex justify-between items-center mb-6 border-b dark:border-gray-700 pb-4">
              <div className="flex items-center space-x-2">
                 <BrainIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                <h2 className="text-xl font-bold text-gray-800 dark:text-white">AI Sınavı</h2>
+                <h2 className="text-xl font-bold text-gray-800 dark:text-white">Sınav Modu</h2>
              </div>
              <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors">
                 <CloseIcon className="w-6 h-6" />
@@ -191,7 +143,7 @@ const AIQuizModal: React.FC<AIQuizModalProps> = ({ isOpen, onClose, cards }) => 
           <div className="flex flex-col flex-grow justify-center space-y-6">
             <div className="text-center">
                 <p className="text-gray-600 dark:text-dark-text-secondary mb-4">
-                    Seçilen kategorideki kartlar sırasıyla sorulacak. Her soru için Doğru veya Yanlış demen yeterli.
+                    Kategorideki kartlara eklenmiş sorularla kendini test et.
                 </p>
             </div>
             
@@ -228,7 +180,7 @@ const AIQuizModal: React.FC<AIQuizModalProps> = ({ isOpen, onClose, cards }) => 
         {step === 'loading' && (
            <div className="flex flex-col items-center justify-center flex-grow space-y-4">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-indigo-600"></div>
-                <p className="text-base font-medium text-gray-600 dark:text-dark-text animate-pulse">Soru hazırlanıyor...</p>
+                <p className="text-base font-medium text-gray-600 dark:text-dark-text animate-pulse">Soru yükleniyor...</p>
            </div>
         )}
 

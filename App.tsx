@@ -4,17 +4,18 @@ import { Card, User, Role } from './types';
 import LoginScreen from './components/LoginScreen';
 import HomeScreen from './components/HomeScreen';
 import { supabase } from './supabaseClient';
+import { INITIAL_CARDS } from './constants';
 
 const Toast: React.FC<{ message: string; onClose: () => void; }> = ({ message, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
       onClose();
-    }, 4000); // Biraz daha uzun süre ekranda kalsın
+    }, 4000);
 
     return () => clearTimeout(timer);
   }, [onClose]);
 
-  const bgClass = message.includes('silindi') || message.includes('Hata')
+  const bgClass = message.toLowerCase().includes('hata') || message.toLowerCase().includes('başarısız') || message.toLowerCase().includes('uyarı')
     ? 'from-red-500 to-red-600' 
     : 'from-green-500 to-green-600';
 
@@ -23,6 +24,47 @@ const Toast: React.FC<{ message: string; onClose: () => void; }> = ({ message, o
       <p className="font-semibold">{message}</p>
     </div>
   );
+};
+
+// Helper to map DB response to Card type consistently
+const mapDbCardToType = (item: any): Card => {
+    // 1. Get raw values
+    let text = item.text || '';
+    let imageUrl = item.image_url || item.imageUrl || item.img_url || item.image || item.img || item.picture || item.url || item.link || '';
+    let quizExplanation = item.quiz_explanation || item.quizExplanation || item.explanation || '';
+    
+    // 2. PIGGYBACK DECODE STRATEGY
+    const PIGGYBACK_DELIMITER = '|||IMG:';
+    
+    // Check Text for hidden image
+    if (!imageUrl && text && text.includes(PIGGYBACK_DELIMITER)) {
+        const parts = text.split(PIGGYBACK_DELIMITER);
+        if (parts.length > 1) {
+            text = parts[0].trim(); // The real text content
+            imageUrl = parts[1].trim(); // The hidden image URL
+        }
+    }
+    
+    // Check Quiz Explanation for hidden image (Secondary Backup)
+    if (!imageUrl && quizExplanation && quizExplanation.includes(PIGGYBACK_DELIMITER)) {
+        const parts = quizExplanation.split(PIGGYBACK_DELIMITER);
+        if (parts.length > 1) {
+            quizExplanation = parts[0].trim();
+            imageUrl = parts[1].trim();
+        }
+    }
+
+    return {
+        id: item.id,
+        category: item.category,
+        text: text,
+        imageUrl: imageUrl,
+        backgroundColor: item.background_color || item.backgroundColor || '#ffffff',
+        created_at: item.created_at,
+        quizQuestion: item.quiz_question || item.quizQuestion || item.question,
+        quizIsTrue: item.quiz_is_true ?? item.quizIsTrue ?? item.is_true ?? true,
+        quizExplanation: quizExplanation
+    };
 };
 
 const App: React.FC = () => {
@@ -39,74 +81,151 @@ const App: React.FC = () => {
 
   // --- 1. AUTHENTICATION & INITIAL LOAD ---
   useEffect(() => {
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-         await fetchUserProfile(session.user.id, session.user.email!);
-         await fetchCards();
-         await fetchFavorites(session.user.id);
+    let mounted = true;
+
+    const safetyTimeout = setTimeout(() => {
+        if (mounted && isLoading) {
+            console.warn("Yükleme zaman aşımına uğradı, arayüz açılıyor.");
+            setIsLoading(false);
+            setToastMessage("Yükleme uzun sürdü, bağlantı yavaş olabilir.");
+        }
+    }, 7000);
+
+    const initApp = async () => {
+      try {
+        cleanupLegacyData().catch(e => console.error("Temizlik hatası (önemsiz):", e));
+
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user && mounted) {
+           const userRole = await fetchUserProfile(session.user.id, session.user.email!);
+           if (mounted) {
+             await fetchCards(userRole);
+             await fetchFavorites(session.user.id);
+           }
+        }
+      } catch (e) {
+        console.error("Başlatma hatası:", e);
+      } finally {
+        if (mounted) {
+            setIsLoading(false);
+            clearTimeout(safetyTimeout);
+        }
       }
-      setIsLoading(false);
     };
 
-    checkUser();
+    initApp();
 
-    // Listen for auth changes
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        setIsLoading(true);
-        await fetchUserProfile(session.user.id, session.user.email!);
-        await fetchCards();
-        await fetchFavorites(session.user.id);
-        setIsLoading(false);
+        try {
+           const userRole = await fetchUserProfile(session.user.id, session.user.email!);
+           await fetchCards(userRole);
+           await fetchFavorites(session.user.id);
+        } catch(e) {
+            console.error("Auth change error", e);
+        } finally {
+            setIsLoading(false);
+        }
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
         setCards([]);
         setFavorites([]);
+        setIsLoading(false); 
       }
     });
 
     return () => {
+      mounted = false;
+      clearTimeout(safetyTimeout);
       authListener.subscription.unsubscribe();
     };
   }, []);
 
-  const fetchUserProfile = async (userId: string, email: string) => {
-    // Fetch role from 'profiles' table
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
+  const cleanupLegacyData = async () => {
+    try {
+        const { error } = await supabase.from('cards').select('image_url').limit(1);
+        if (!error) {
+            const { data: badCards } = await supabase
+                .from('cards')
+                .select('id')
+                .ilike('image_url', '%pollinations%');
 
-    const role = data?.role === 'ADMIN' ? Role.ADMIN : Role.USER;
-    
-    setCurrentUser({
-      id: userId,
-      email: email,
-      role: role
-    });
+            if (badCards && badCards.length > 0) {
+                const ids = badCards.map(c => c.id);
+                await supabase.from('cards').update({ image_url: '' }).in('id', ids);
+            }
+        }
+    } catch (err) {
+        // Ignore errors here
+    }
   };
 
-  const fetchCards = async () => {
+  const fetchUserProfile = async (userId: string, email: string): Promise<Role> => {
+    try {
+        const { data } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+
+        const role = data?.role === 'ADMIN' ? Role.ADMIN : Role.USER;
+        
+        setCurrentUser({
+            id: userId,
+            email: email,
+            role: role
+        });
+        
+        return role;
+    } catch (error) {
+        setCurrentUser({
+            id: userId,
+            email: email,
+            role: Role.USER
+        });
+        return Role.USER;
+    }
+  };
+
+  const checkAndSeedDatabase = async () => {
+      const { count, error } = await supabase
+          .from('cards')
+          .select('id', { count: 'exact', head: true });
+      
+      if (!error && count === 0) {
+          setToastMessage("Veritabanı boş. Varsayılan kartlar yükleniyor...");
+          
+          const cardsToInsert = INITIAL_CARDS.map(card => ({
+              category: card.category,
+              text: card.text,
+              image_url: card.imageUrl, 
+              background_color: card.backgroundColor
+          }));
+
+          await supabase.from('cards').insert(cardsToInsert);
+          setToastMessage("Varsayılan kartlar yüklendi!");
+      }
+  };
+
+  const fetchCards = async (role?: Role) => {
+    if (role === Role.ADMIN) {
+        await checkAndSeedDatabase();
+    }
+
     const { data, error } = await supabase
       .from('cards')
       .select('*')
       .order('created_at', { ascending: false });
-    
-    if (error) console.error('Error fetching cards:', error);
-    else {
-      // FIX: Map Supabase snake_case columns to frontend camelCase properties
-      // Added fallbacks for different column naming conventions
-      const mappedCards: Card[] = (data || []).map((item: any) => ({
-        id: item.id,
-        category: item.category,
-        text: item.text,
-        imageUrl: item.image_url || item.imageUrl, 
-        backgroundColor: item.background_color || item.backgroundColor || item.backgroundcolor || '#ffffff', 
-        created_at: item.created_at
-      }));
+
+    if (error) {
+        console.error("Fetch error:", error);
+        setToastMessage("Kartlar çekilirken bir sorun oluştu.");
+        return;
+    }
+
+    if (data) {
+      const mappedCards = data.map(mapDbCardToType);
       setCards(mappedCards);
     }
   };
@@ -121,7 +240,6 @@ const App: React.FC = () => {
     else setFavorites(data?.map(f => f.card_id) || []);
   };
 
-  // --- THEME ---
   useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
@@ -131,48 +249,40 @@ const App: React.FC = () => {
     localStorage.setItem('kpss-theme', theme);
   }, [theme]);
 
-
-  // --- HANDLERS ---
-
+  // --- AUTH HANDLERS ---
   const handleLogin = async (credentials: { userId?: string; password?: string; provider?: string }) => {
     setAuthError(null);
-    
-    if (credentials.provider) {
-       // REAL SOCIAL LOGIN
-       const { error } = await supabase.auth.signInWithOAuth({ 
-           provider: 'google',
-           options: {
-               redirectTo: 'https://kpssguncel-git-main-scddniyibils-projects.vercel.app'
-           }
-       });
-       if (error) setAuthError(error.message);
-    } else if (credentials.userId && credentials.password) {
-       // EMAIL / PASSWORD LOGIN
-       const { error } = await supabase.auth.signInWithPassword({
-         email: credentials.userId, 
-         password: credentials.password
-       });
-       if (error) setAuthError(error.message);
+    setIsLoading(true);
+    try {
+        if (credentials.provider) {
+        const { error } = await supabase.auth.signInWithOAuth({ 
+            provider: 'google',
+            options: { redirectTo: 'https://kpssguncel-git-main-scddniyibils-projects.vercel.app' }
+        });
+        if (error) throw error;
+        } else if (credentials.userId && credentials.password) {
+        const { error } = await supabase.auth.signInWithPassword({
+            email: credentials.userId, 
+            password: credentials.password
+        });
+        if (error) throw error;
+        }
+    } catch (e: any) {
+        setAuthError(e.message);
+        setIsLoading(false);
     }
   };
   
   const handleSignUp = async (credentials: { userId: string; email: string; password?: string; }) => {
     setAuthError(null);
     if (!credentials.password) return;
-
     const { error } = await supabase.auth.signUp({
       email: credentials.email,
       password: credentials.password,
-      options: {
-        emailRedirectTo: 'https://kpssguncel-git-main-scddniyibils-projects.vercel.app'
-      }
+      options: { emailRedirectTo: 'https://kpssguncel-git-main-scddniyibils-projects.vercel.app' }
     });
-
-    if (error) {
-      setAuthError(error.message);
-    } else {
-      setToastMessage('Kayıt oldunuz! Lütfen mailinizi kontrol edip hesabınızı aktif edin.');
-    }
+    if (error) setAuthError(error.message);
+    else setToastMessage('Kayıt oldunuz! Lütfen mailinizi kontrol edip hesabınızı aktif edin.');
   };
 
   const handleResetPassword = async (email: string) => {
@@ -180,80 +290,203 @@ const App: React.FC = () => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: 'https://kpssguncel-git-main-scddniyibils-projects.vercel.app',
     });
-
-    if (error) {
-      setAuthError(error.message);
-    } else {
-      setToastMessage('Şifre sıfırlama bağlantısı e-postana gönderildi.');
-    }
+    if (error) setAuthError(error.message);
+    else setToastMessage('Şifre sıfırlama bağlantısı e-postana gönderildi.');
   };
 
   const handleUpdatePassword = async (newPassword: string) => {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) {
-          setToastMessage(`Hata: ${error.message}`);
-          throw error;
-      } else {
-          setToastMessage('Şifreniz başarıyla güncellendi.');
-      }
+      if (error) { setToastMessage(`Hata: ${error.message}`); throw error; } 
+      else setToastMessage('Şifreniz başarıyla güncellendi.');
   };
 
   const handleLogout = async () => {
+    setIsLoading(true);
     await supabase.auth.signOut();
+    setIsLoading(false);
   };
   
   const toggleTheme = () => {
     setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
   };
 
-  const handleSaveCard = async (cardData: Omit<Card, 'id'> | Card) => {
+  // --- WARRIOR SAVE LOGIC (Try Every Possible Way) ---
+  const saveCardToSupabase = async (payload: any, id?: string) => {
+      const query = supabase.from('cards');
+      
+      // If we don't have an image, just save simply
+      if (!payload.image_url) {
+           const minimalPayload = { ...payload };
+           delete minimalPayload.image_url; 
+           // Normalize snake_case for minimal (ensure keys are correct)
+           // But payload passed here is already mixed. Let's act on known keys.
+           const cleanPayload: any = {
+               category: payload.category,
+               text: payload.text,
+               background_color: payload.background_color,
+               quiz_question: payload.quiz_question,
+               quiz_is_true: payload.quiz_is_true,
+               quiz_explanation: payload.quiz_explanation
+           };
+           
+           let op = id ? query.update(cleanPayload).eq('id', id) : query.insert(cleanPayload);
+           const { data, error } = await op.select().single();
+           return { data, error, partialSuccess: false };
+      }
+
+      // We have an image, let's try to save it.
+      // List of potential column names people use for images
+      const potentialImageCols = ['image_url', 'imageUrl', 'img_url', 'image', 'picture', 'url', 'avatar', 'cover'];
+      
+      // STRATEGY 1: Try every column name until one sticks
+      for (const colName of potentialImageCols) {
+           const tryPayload: any = {
+               category: payload.category,
+               text: payload.text,
+               background_color: payload.background_color,
+               quiz_question: payload.quiz_question,
+               quiz_is_true: payload.quiz_is_true,
+               quiz_explanation: payload.quiz_explanation
+           };
+           tryPayload[colName] = payload.image_url;
+
+           let op = id ? query.update(tryPayload).eq('id', id) : query.insert(tryPayload);
+           const { data, error } = await op.select().single();
+           
+           if (!error) {
+               return { data, error: null, partialSuccess: false }; // SUCCESS!
+           }
+      }
+
+      // STRATEGY 2: PIGGYBACK on TEXT
+      // If columns failed, try to append URL to the text field.
+      // Delimiter used: |||IMG:
+      const PIGGYBACK_DELIMITER = '|||IMG:';
+      const hackedText = `${payload.text} ${PIGGYBACK_DELIMITER}${payload.image_url}`;
+      
+      const textFallbackPayload: any = {
+           category: payload.category,
+           text: hackedText,
+           background_color: payload.background_color,
+           quiz_question: payload.quiz_question,
+           quiz_is_true: payload.quiz_is_true,
+           quiz_explanation: payload.quiz_explanation
+      };
+      
+      let opText = id ? query.update(textFallbackPayload).eq('id', id) : query.insert(textFallbackPayload);
+      const resText = await opText.select().single();
+      
+      if (!resText.error) {
+           return { data: resText.data, error: null, partialSuccess: false }; // Piggyback Success!
+      }
+
+      // STRATEGY 3: PIGGYBACK on QUIZ_EXPLANATION (If Text failed due to length)
+      const hackedExplanation = `${payload.quiz_explanation || ''} ${PIGGYBACK_DELIMITER}${payload.image_url}`;
+      const explFallbackPayload: any = {
+           category: payload.category,
+           text: payload.text, // Original text
+           background_color: payload.background_color,
+           quiz_question: payload.quiz_question,
+           quiz_is_true: payload.quiz_is_true,
+           quiz_explanation: hackedExplanation
+      };
+
+      let opExpl = id ? query.update(explFallbackPayload).eq('id', id) : query.insert(explFallbackPayload);
+      const resExpl = await opExpl.select().single();
+
+      if (!resExpl.error) {
+            return { data: resExpl.data, error: null, partialSuccess: false }; // Backup Piggyback Success!
+      }
+      
+      // STRATEGY 4: SURRENDER (Save without image)
+      const minimalPayload: any = {
+           category: payload.category,
+           text: payload.text,
+           background_color: payload.background_color,
+      };
+      let opMin = id ? query.update(minimalPayload).eq('id', id) : query.insert(minimalPayload);
+      const resMin = await opMin.select().single();
+      
+      if (!resMin.error) {
+           return { data: resMin.data, error: null, partialSuccess: true }; // Saved but lost image
+      }
+
+      return { data: null, error: resMin.error, partialSuccess: false };
+  };
+
+  const handleSaveCard = async (cardData: Omit<Card, 'id'> | Card | Omit<Card, 'id'>[]) => {
     if (!currentUser || currentUser.role !== Role.ADMIN) return;
 
-    // Single card save logic
-    if (Array.isArray(cardData)) return; 
+    if (Array.isArray(cardData)) {
+        const payload = cardData.map(c => ({
+            category: c.category,
+            text: c.text,
+            image_url: c.imageUrl || '',
+            background_color: c.backgroundColor
+        }));
+        const { error } = await supabase.from('cards').insert(payload);
+        if (error) setToastMessage(`Toplu ekleme hatası: ${error.message}`);
+        else {
+            setToastMessage(`${cardData.length} kart başarıyla eklendi!`);
+            await fetchCards(currentUser.role);
+        }
+        return;
+    }
     
     try {
-      if ('id' in cardData) {
-        // UPDATE
-        const { error } = await supabase
-          .from('cards')
-          .update({
-            category: cardData.category,
-            text: cardData.text,
-            image_url: cardData.imageUrl,
-            background_color: cardData.backgroundColor
-          })
-          .eq('id', cardData.id);
-          
-        if (error) throw error;
-        setToastMessage('Kart güncellendi!');
+      const fullPayload = {
+        category: cardData.category,
+        text: cardData.text,
+        image_url: cardData.imageUrl ?? null,
+        background_color: cardData.backgroundColor,
+        quiz_question: cardData.quizQuestion,
+        quiz_is_true: cardData.quizIsTrue,
+        quiz_explanation: cardData.quizExplanation
+      };
 
+      const isUpdate = 'id' in cardData;
+      const { data, error, partialSuccess } = await saveCardToSupabase(fullPayload, isUpdate ? (cardData as Card).id : undefined);
+
+      if (error) throw error;
+
+      if (partialSuccess) {
+          setToastMessage("Kart kaydedildi! (Uyarı: Resim veritabanı limitleri nedeniyle kaydedilemedi).");
       } else {
-        // INSERT
-        const payload = {
-          category: cardData.category,
-          text: cardData.text,
-          image_url: cardData.imageUrl,
-          background_color: cardData.backgroundColor
-        };
-
-        const { error } = await supabase.from('cards').insert(payload);
-        if (error) throw error;
-        setToastMessage('Kart eklendi!');
+          setToastMessage(isUpdate ? 'Kart başarıyla güncellendi!' : 'Kart başarıyla eklendi!');
       }
-      await fetchCards(); 
+      
+      // --- UI-FIRST UPDATE (OPTIMISTIC UI) ---
+      // This ensures the user sees the change immediately, even if DB lags
+      const mergedCard: Card = {
+          id: data?.id || (isUpdate ? (cardData as Card).id : Date.now().toString()),
+          created_at: data?.created_at || new Date().toISOString(),
+          text: cardData.text,
+          category: cardData.category,
+          backgroundColor: cardData.backgroundColor || '#ffffff',
+          imageUrl: cardData.imageUrl || '', 
+          quizQuestion: cardData.quizQuestion,
+          quizIsTrue: cardData.quizIsTrue,
+          quizExplanation: cardData.quizExplanation
+      };
+
+      if (isUpdate) {
+        setCards(prev => prev.map(c => c.id === mergedCard.id ? mergedCard : c));
+      } else {
+        setCards(prev => [mergedCard, ...prev]);
+        if (!isUpdate && !data?.id) fetchCards(currentUser.role);
+      }
+
     } catch (err: any) {
+      console.error("Save error:", err);
       setToastMessage(`Hata: ${err.message}`);
     }
   };
 
   const handleDeleteCard = async (cardId: string) => {
     if (!currentUser || currentUser.role !== Role.ADMIN) return;
-    
     const { error } = await supabase.from('cards').delete().eq('id', cardId);
-    if (error) {
-      setToastMessage('Silme işlemi başarısız.');
-    } else {
+    if (error) setToastMessage('Silme işlemi başarısız.');
+    else {
       setToastMessage('Kart silindi!');
       setCards(prev => prev.filter(c => c.id !== cardId));
     }
@@ -261,35 +494,22 @@ const App: React.FC = () => {
 
   const handleToggleFavorite = async (cardId: string) => {
     if (!currentUser) return;
-
     const isFavorite = favorites.includes(cardId);
-
     if (isFavorite) {
-      const { error } = await supabase
-        .from('favorites')
-        .delete()
-        .eq('user_id', currentUser.id)
-        .eq('card_id', cardId);
-        
-      if (!error) {
-        setFavorites(prev => prev.filter(id => id !== cardId));
-      }
+      const { error } = await supabase.from('favorites').delete().eq('user_id', currentUser.id).eq('card_id', cardId);
+      if (!error) setFavorites(prev => prev.filter(id => id !== cardId));
     } else {
-      const { error } = await supabase
-        .from('favorites')
-        .insert({ user_id: currentUser.id, card_id: cardId });
-
-      if (!error) {
-        setFavorites(prev => [...prev, cardId]);
-      }
+      const { error } = await supabase.from('favorites').insert({ user_id: currentUser.id, card_id: cardId });
+      if (!error) setFavorites(prev => [...prev, cardId]);
     }
   };
 
   return (
     <>
       {isLoading ? (
-         <div className="min-h-screen flex items-center justify-center bg-neutral dark:bg-dark-bg">
-           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-primary"></div>
+         <div className="min-h-screen flex flex-col items-center justify-center bg-neutral dark:bg-dark-bg">
+           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-primary mb-4"></div>
+           <p className="text-gray-600 dark:text-gray-300">Yükleniyor...</p>
          </div>
       ) : (
         currentUser ? (

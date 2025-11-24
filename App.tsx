@@ -83,13 +83,13 @@ const App: React.FC = () => {
   useEffect(() => {
     let mounted = true;
 
-    const safetyTimeout = setTimeout(() => {
-        if (mounted && isLoading) {
-            console.warn("Yükleme zaman aşımına uğradı, arayüz açılıyor.");
-            setIsLoading(false);
-            setToastMessage("Yükleme uzun sürdü, bağlantı yavaş olabilir.");
-        }
-    }, 7000);
+const safetyTimeout = setTimeout(() => {
+    if (mounted && isLoading) {
+        console.warn("Yükleme zaman aşımına uğradı, arayüz açılıyor.");
+        setIsLoading(false);
+        setToastMessage("Yükleme uzun sürdü, bağlantı yavaş olabilir.");
+    }
+}, 15000);
 
     const initApp = async () => {
       try {

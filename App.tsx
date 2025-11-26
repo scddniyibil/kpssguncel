@@ -317,6 +317,13 @@ const safetyTimeout = setTimeout(() => {
   // --- WARRIOR SAVE LOGIC (Try Every Possible Way) ---
   const saveCardToSupabase = async (payload: any, id?: string) => {
       const query = supabase.from('cards');
+      const PIGGYBACK_DELIMITER = '|||IMG:';
+      
+      // Helper function to remove piggybacked images from text
+      const sanitizeText = (text: string) => {
+          if (!text) return text;
+          return text.split(PIGGYBACK_DELIMITER)[0].trim();
+      };
       
       // If we don't have an image, just save simply
       if (!payload.image_url) {
@@ -326,11 +333,11 @@ const safetyTimeout = setTimeout(() => {
            // But payload passed here is already mixed. Let's act on known keys.
            const cleanPayload: any = {
                category: payload.category,
-               text: payload.text,
+               text: sanitizeText(payload.text),
                background_color: payload.background_color,
                quiz_question: payload.quiz_question,
                quiz_is_true: payload.quiz_is_true,
-               quiz_explanation: payload.quiz_explanation,
+               quiz_explanation: sanitizeText(payload.quiz_explanation),
                image_url: null // ensure existing images are cleared
            };
            
@@ -347,11 +354,11 @@ const safetyTimeout = setTimeout(() => {
       for (const colName of potentialImageCols) {
            const tryPayload: any = {
                category: payload.category,
-               text: payload.text,
+               text: sanitizeText(payload.text),
                background_color: payload.background_color,
                quiz_question: payload.quiz_question,
                quiz_is_true: payload.quiz_is_true,
-               quiz_explanation: payload.quiz_explanation
+               quiz_explanation: sanitizeText(payload.quiz_explanation)
            };
            tryPayload[colName] = payload.image_url;
 
@@ -366,8 +373,7 @@ const safetyTimeout = setTimeout(() => {
       // STRATEGY 2: PIGGYBACK on TEXT
       // If columns failed, try to append URL to the text field.
       // Delimiter used: |||IMG:
-      const PIGGYBACK_DELIMITER = '|||IMG:';
-      const hackedText = `${payload.text} ${PIGGYBACK_DELIMITER}${payload.image_url}`;
+      const hackedText = `${sanitizeText(payload.text)} ${PIGGYBACK_DELIMITER}${payload.image_url}`;
       
       const textFallbackPayload: any = {
            category: payload.category,
@@ -375,7 +381,7 @@ const safetyTimeout = setTimeout(() => {
            background_color: payload.background_color,
            quiz_question: payload.quiz_question,
            quiz_is_true: payload.quiz_is_true,
-           quiz_explanation: payload.quiz_explanation
+           quiz_explanation: sanitizeText(payload.quiz_explanation)
       };
       
       let opText = id ? query.update(textFallbackPayload).eq('id', id) : query.insert(textFallbackPayload);
@@ -386,10 +392,10 @@ const safetyTimeout = setTimeout(() => {
       }
 
       // STRATEGY 3: PIGGYBACK on QUIZ_EXPLANATION (If Text failed due to length)
-      const hackedExplanation = `${payload.quiz_explanation || ''} ${PIGGYBACK_DELIMITER}${payload.image_url}`;
+      const hackedExplanation = `${sanitizeText(payload.quiz_explanation)} ${PIGGYBACK_DELIMITER}${payload.image_url}`;
       const explFallbackPayload: any = {
            category: payload.category,
-           text: payload.text, // Original text
+           text: sanitizeText(payload.text), // Original text (cleaned)
            background_color: payload.background_color,
            quiz_question: payload.quiz_question,
            quiz_is_true: payload.quiz_is_true,

@@ -257,10 +257,11 @@ const safetyTimeout = setTimeout(() => {
         // Sadece e-posta ve şifre ile giriş engellenmesin, Google opsiyonu kaldırıldı
         if (credentials.userId && credentials.password) {
             const { error } = await supabase.auth.signInWithPassword({
-                email: credentials.userId, 
+                email: credentials.userId,
                 password: credentials.password
             });
             if (error) throw error;
+            setIsLoading(false);
         }
     } catch (e: any) {
         setAuthError(e.message);

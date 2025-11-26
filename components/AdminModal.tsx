@@ -73,16 +73,17 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSave, cardTo
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-    
+
     const file = e.target.files[0];
     setUploading(true);
-    
+
     try {
         // Sanitize filename and extension
         const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
         const safeExt = fileExt.replace(/[^a-z0-9]/g, '');
         // Keep filename short for potential database piggybacking
-        const fileName = `${Date.now()}.${safeExt}`;
+        // Use unique random string + timestamp to prevent collisions
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${safeExt}`;
         const filePath = `${fileName}`;
 
         const { error: uploadError } = await supabase.storage
@@ -94,12 +95,17 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSave, cardTo
         }
 
         const { data } = supabase.storage.from('images').getPublicUrl(filePath);
-        
+
         // Update local state with the new image URL
         setCard(prev => ({ ...prev, imageUrl: data.publicUrl }));
+
+        // Clear the file input to allow re-uploading the same file
+        e.target.value = '';
     } catch (error: any) {
         alert(`Resim yüklenirken hata oluştu: ${error.message}`);
         console.error("Upload error:", error);
+        // Clear the file input even on error
+        e.target.value = '';
     } finally {
         setUploading(false);
     }

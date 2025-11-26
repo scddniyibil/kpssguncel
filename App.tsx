@@ -254,18 +254,13 @@ const safetyTimeout = setTimeout(() => {
     setAuthError(null);
     setIsLoading(true);
     try {
-        if (credentials.provider) {
-        const { error } = await supabase.auth.signInWithOAuth({ 
-            provider: 'google',
-            options: { redirectTo: 'https://kpssguncel-git-main-scddniyibils-projects.vercel.app' }
-        });
-        if (error) throw error;
-        } else if (credentials.userId && credentials.password) {
-        const { error } = await supabase.auth.signInWithPassword({
-            email: credentials.userId, 
-            password: credentials.password
-        });
-        if (error) throw error;
+        // Sadece e-posta ve şifre ile giriş engellenmesin, Google opsiyonu kaldırıldı
+        if (credentials.userId && credentials.password) {
+            const { error } = await supabase.auth.signInWithPassword({
+                email: credentials.userId, 
+                password: credentials.password
+            });
+            if (error) throw error;
         }
     } catch (e: any) {
         setAuthError(e.message);

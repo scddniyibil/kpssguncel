@@ -116,22 +116,26 @@ const safetyTimeout = setTimeout(() => {
 
     initApp();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        try {
-           const userRole = await fetchUserProfile(session.user.id, session.user.email!);
-           await fetchCards(userRole);
-           await fetchFavorites(session.user.id);
-        } catch(e) {
+        (async () => {
+          try {
+            const userRole = await fetchUserProfile(session.user.id, session.user.email!);
+            await Promise.all([
+              fetchCards(userRole),
+              fetchFavorites(session.user.id)
+            ]);
+          } catch(e) {
             console.error("Auth change error", e);
-        } finally {
+          } finally {
             setIsLoading(false);
-        }
+          }
+        })();
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
         setCards([]);
         setFavorites([]);
-        setIsLoading(false); 
+        setIsLoading(false);
       }
     });
 
@@ -209,24 +213,28 @@ const safetyTimeout = setTimeout(() => {
   };
 
   const fetchCards = async (role?: Role) => {
-    if (role === Role.ADMIN) {
-        await checkAndSeedDatabase();
-    }
+    try {
+      const { data, error } = await supabase
+        .from('cards')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    const { data, error } = await supabase
-      .from('cards')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
+      if (error) {
         console.error("Fetch error:", error);
         setToastMessage("Kartlar çekilirken bir sorun oluştu.");
         return;
-    }
+      }
 
-    if (data) {
-      const mappedCards = data.map(mapDbCardToType);
-      setCards(mappedCards);
+      if (data) {
+        const mappedCards = data.map(mapDbCardToType);
+        setCards(mappedCards);
+      }
+
+      if (role === Role.ADMIN && data?.length === 0) {
+        checkAndSeedDatabase().catch(e => console.error("Seed error:", e));
+      }
+    } catch (err) {
+      console.error("fetchCards error:", err);
     }
   };
 

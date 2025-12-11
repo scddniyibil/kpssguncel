@@ -82,16 +82,21 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const handleSaveCard = async (cardData: Omit<Card, 'id'> | Card | Omit<Card, 'id'>[]) => {
+    console.log("handleSaveCard called with:", cardData);
+
     // Save the card
     onSaveCard(cardData);
 
     // If it's a single card (not array), auto-open its category
     if (!Array.isArray(cardData)) {
       const category = cardData.category;
-      // Wait a bit for the save to complete, then fetch and open
+      console.log("Will open category:", category, "in 2 seconds");
+
+      // Wait longer for save to complete, then fetch and open
       setTimeout(async () => {
+        console.log("Opening category:", category);
         await handleCategoryClick(category);
-      }, 500);
+      }, 2000);
     }
   };
 

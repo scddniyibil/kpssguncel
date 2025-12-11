@@ -102,12 +102,10 @@ const App: React.FC = () => {
         const { data: { session } } = await supabase.auth.getSession();
 
         if (session?.user && mounted) {
-          const userRole = await fetchUserProfile(session.user.id, session.user.email!);
-          if (mounted) {
-            // Load favorites in background, don't block UI
-            fetchFavorites(session.user.id).catch(console.error);
-            setIsDataLoaded(true);
-          }
+          // Load everything in background - don't block UI
+          fetchUserProfile(session.user.id, session.user.email!).catch(console.error);
+          fetchFavorites(session.user.id).catch(console.error);
+          setIsDataLoaded(true);
         }
       } catch (e) {
         console.error("Init App Error:", e);
@@ -126,8 +124,8 @@ const App: React.FC = () => {
       if (event === 'SIGNED_IN' && session?.user) {
         if (!isDataLoaded) {
           try {
-            const userRole = await fetchUserProfile(session.user.id, session.user.email!);
-            await fetchFavorites(session.user.id);
+            await fetchUserProfile(session.user.id, session.user.email!);
+            fetchFavorites(session.user.id).catch(console.error);
             if (mounted) setIsDataLoaded(true);
           } catch (e) {
             console.error("Auth listener fetch error:", e);

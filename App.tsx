@@ -92,7 +92,7 @@ const App: React.FC = () => {
         setIsLoading(false);
         setToastMessage("Yükleme uzun sürdü, bağlantı yavaş olabilir.");
       }
-    }, 12000); // Reduced to 12s for better UX
+    }, 30000); // Increased to 30s for slow connections
 
     const initApp = async () => {
       try {

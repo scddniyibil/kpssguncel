@@ -75,9 +75,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const handleCategoryClick = async (cat: string) => {
-    // Lazy load cards for this category
-    await onFetchCategory(cat);
+    // Set viewing category FIRST so carousel opens immediately
     setViewingCategory(cat);
+    // Then lazy load cards for this category
+    await onFetchCategory(cat);
   };
 
   const categoryCardCounts = useMemo(() => {

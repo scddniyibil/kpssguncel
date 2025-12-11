@@ -222,7 +222,9 @@ const App: React.FC = () => {
         .order('created_at', { ascending: false });
 
       // Apply filters based on category
+      console.log("fetchCards called with role:", role, "category:", category);
       if (category) {
+        console.log("Category filter active:", category);
         if (category === 'Favoriler') {
           if (favorites.length === 0) {
             setCards([]);
@@ -231,8 +233,11 @@ const App: React.FC = () => {
           }
           query = query.in('id', favorites);
         } else {
+          console.log("Filtering by category:", category);
           query = query.eq('category', category);
         }
+      } else {
+        console.log("WARNING: No category provided to fetchCards!");
       }
 
       // Limit to 100 to prevent slowness
@@ -240,15 +245,22 @@ const App: React.FC = () => {
 
       const { data, error } = await query;
 
+      console.log("Query result - data:", data, "error:", error);
+      console.log("Number of cards fetched:", data?.length || 0);
+
       if (error) {
         console.error("Fetch error:", error);
         setToastMessage("Kartlar çekilirken bir sorun oluştu.");
+        setIsLoading(false);
         return;
       }
 
       if (data) {
         const mappedCards = data.map(mapDbCardToType);
+        console.log("Mapped cards:", mappedCards);
         setCards(mappedCards);
+      } else {
+        console.log("No data returned from query");
       }
     } catch (err) {
       console.error(err);

@@ -75,10 +75,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const handleCategoryClick = async (cat: string) => {
+    console.log("=== handleCategoryClick START ===");
+    console.log("Category:", cat);
+
     // Set viewing category FIRST so carousel opens immediately
     setViewingCategory(cat);
+    console.log("viewingCategory set to:", cat);
+
     // Then lazy load cards for this category
+    console.log("Calling onFetchCategory...");
     await onFetchCategory(cat);
+    console.log("onFetchCategory completed");
+    console.log("=== handleCategoryClick END ===");
   };
 
   const handleSaveCard = async (cardData: Omit<Card, 'id'> | Card | Omit<Card, 'id'>[]) => {

@@ -104,9 +104,8 @@ const App: React.FC = () => {
         if (session?.user && mounted) {
           const userRole = await fetchUserProfile(session.user.id, session.user.email!);
           if (mounted) {
-            // STARTUP OPTIMIZATION: ONLY FETCH FAVORITES.
-            // Cards will be fetched when user clicks a category.
-            await fetchFavorites(session.user.id);
+            // Load favorites in background, don't block UI
+            fetchFavorites(session.user.id).catch(console.error);
             setIsDataLoaded(true);
           }
         }
@@ -208,8 +207,10 @@ const App: React.FC = () => {
   };
 
   const fetchCards = async (role?: Role, category?: string) => {
+    console.log("=== fetchCards START ===");
+    console.log("Role:", role, "Category:", category);
+
     if (role === Role.ADMIN) {
-      // Run seed check in background, don't block
       checkAndSeedDatabase().catch(console.error);
     }
 

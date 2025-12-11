@@ -73,17 +73,16 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSave, cardTo
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-
+    
     const file = e.target.files[0];
     setUploading(true);
-
+    
     try {
         // Sanitize filename and extension
         const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
         const safeExt = fileExt.replace(/[^a-z0-9]/g, '');
         // Keep filename short for potential database piggybacking
-        // Use unique random string + timestamp to prevent collisions
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${safeExt}`;
+        const fileName = `${Date.now()}.${safeExt}`;
         const filePath = `${fileName}`;
 
         const { error: uploadError } = await supabase.storage
@@ -95,17 +94,12 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSave, cardTo
         }
 
         const { data } = supabase.storage.from('images').getPublicUrl(filePath);
-
+        
         // Update local state with the new image URL
         setCard(prev => ({ ...prev, imageUrl: data.publicUrl }));
-
-        // Clear the file input to allow re-uploading the same file
-        e.target.value = '';
     } catch (error: any) {
         alert(`Resim yüklenirken hata oluştu: ${error.message}`);
         console.error("Upload error:", error);
-        // Clear the file input even on error
-        e.target.value = '';
     } finally {
         setUploading(false);
     }
@@ -120,207 +114,133 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSave, cardTo
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in p-4">
-      <div className="bg-white dark:bg-dark-card rounded-2xl shadow-2xl w-full max-w-3xl relative animate-slide-in-up flex flex-col max-h-[92vh]">
-        <div className="px-6 sm:px-8 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between sticky top-0 bg-white/95 dark:bg-dark-card/95 backdrop-blur">
-          <div>
-            <p className="text-xs uppercase tracking-widest text-gray-400">{cardToEdit ? 'Kart Güncelle' : 'Yeni Kart Oluştur'}</p>
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{cardToEdit ? 'Bilgi Kartı Düzenle' : 'Bilgi Kartı Ekle'}</h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-300 transition-colors"
-            aria-label="Kapat"
-          >
-            <CloseIcon className="w-6 h-6" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="overflow-y-auto px-6 sm:px-8 py-6 space-y-6">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in p-4 overflow-y-auto">
+      <div className="bg-white dark:bg-dark-card rounded-lg shadow-2xl p-8 w-full max-w-lg relative animate-slide-in-up my-8">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white">
+          <CloseIcon className="w-6 h-6" />
+        </button>
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">{cardToEdit ? 'Kartı Düzenle' : 'Yeni Kart Ekle'}</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          
           {/* Main Info Section */}
-          <section className="space-y-4 rounded-2xl border border-gray-100 dark:border-gray-800 p-4 sm:p-5 bg-gray-50/60 dark:bg-gray-900/40">
-            <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-2">
-              <PaletteIcon className="w-4 h-4 text-indigo-500" /> Kart Bilgileri
-            </h3>
-            <div className="grid gap-4">
+          <div className="space-y-4 border-b pb-6 dark:border-gray-700">
+              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Bilgi Kartı</h3>
               <div>
                 <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-dark-text">Kategori</label>
-                <select
-                  id="category"
-                  name="category"
-                  value={card.category}
-                  onChange={handleChange}
-                  className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
+                <select id="category" name="category" value={card.category} onChange={handleChange} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md bg-white dark:bg-gray-700 dark:text-white">
                   {CATEGORIES.map(cat => <option key={cat}>{cat}</option>)}
                 </select>
               </div>
               <div>
-                <label htmlFor="text" className="block text-sm font-medium text-gray-700 dark:text-dark-text">Kart İçeriği</label>
-                <textarea
-                  id="text"
-                  name="text"
-                  value={card.text}
-                  onChange={handleChange}
-                  rows={6}
-                  required
-                  className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                ></textarea>
+                <label htmlFor="text" className="block text-sm font-medium text-gray-700 dark:text-dark-text">Açıklama</label>
+                <textarea id="text" name="text" value={card.text} onChange={handleChange} rows={3} required className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 dark:text-white"></textarea>
               </div>
-            </div>
-          </section>
 
-          {/* Background Color Picker */}
-          <section className="rounded-2xl border border-gray-100 dark:border-gray-800 p-4 sm:p-5 bg-gray-50/60 dark:bg-gray-900/40 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                <PaletteIcon className="w-4 h-4 text-pink-500" /> Arka Plan Rengi
-              </h3>
-              <span className="text-xs text-gray-400 font-mono">{card.backgroundColor}</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {PRESET_COLORS.map(color => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => handleColorSelect(color)}
-                  className={`w-9 h-9 rounded-full border shadow-sm transition-transform hover:scale-110 ${card.backgroundColor === color ? 'ring-2 ring-offset-2 ring-indigo-500' : 'border-gray-200 dark:border-gray-700'}`}
-                  style={{ backgroundColor: color }}
-                  aria-label={`Select color ${color}`}
-                />
-              ))}
-            </div>
-            <div className="flex items-center gap-3">
-              <label className="text-sm text-gray-500 dark:text-gray-400">Özel Renk</label>
-              <input
-                type="color"
-                name="backgroundColor"
-                value={card.backgroundColor || '#ffffff'}
-                onChange={handleChange}
-                className="h-10 w-10 rounded-full border border-gray-200 dark:border-gray-700 cursor-pointer bg-transparent"
-              />
-            </div>
-          </section>
-
-          {/* Image Upload */}
-          <section className="rounded-2xl border border-gray-100 dark:border-gray-800 p-4 sm:p-5 bg-gray-50/60 dark:bg-gray-900/40 space-y-4">
-            <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400">Kart Görseli</h3>
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <input
-                type="file"
-                id="imageFile"
-                accept="image/*"
-                onChange={handleImageUpload}
-                disabled={uploading}
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-gray-700 dark:file:text-white"
-              />
-              {uploading && <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>}
-            </div>
-            {card.imageUrl && (
-              <div className="relative group w-full h-48 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border border-dashed border-gray-300 dark:border-gray-700">
-                <img src={card.imageUrl} alt="Önizleme" className="w-full h-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => setCard(prev => ({ ...prev, imageUrl: '' }))}
-                  className="absolute top-3 right-3 bg-red-500 text-white rounded-full p-1.5 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <CloseIcon className="w-3.5 h-3.5" />
-                </button>
+              {/* Background Color Picker */}
+              <div>
+                 <label className="block text-sm font-medium text-gray-700 dark:text-dark-text mb-2">Arka Plan Rengi</label>
+                 <div className="flex flex-wrap gap-2 mb-2">
+                    {PRESET_COLORS.map(color => (
+                        <button
+                            key={color}
+                            type="button"
+                            onClick={() => handleColorSelect(color)}
+                            className={`w-8 h-8 rounded-full border shadow-sm transition-transform hover:scale-110 ${card.backgroundColor === color ? 'ring-2 ring-offset-2 ring-indigo-500' : 'border-gray-200'}`}
+                            style={{ backgroundColor: color }}
+                            aria-label={`Select color ${color}`}
+                        />
+                    ))}
+                 </div>
+                 <div className="flex items-center space-x-2">
+                     <div className="relative overflow-hidden w-10 h-10 rounded-full border border-gray-300 shadow-sm">
+                        <input 
+                            type="color" 
+                            name="backgroundColor" 
+                            value={card.backgroundColor || '#ffffff'} 
+                            onChange={handleChange}
+                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] p-0 border-0 cursor-pointer"
+                        />
+                     </div>
+                     <span className="text-xs text-gray-500 dark:text-gray-400">Özel Renk Seç</span>
+                 </div>
               </div>
-            )}
-          </section>
-
-          {/* Live Preview */}
-          <section className="rounded-2xl border border-gray-100 dark:border-gray-800 p-4 sm:p-5 bg-gray-50/60 dark:bg-gray-900/60 space-y-3">
-            <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400">Kart Önizleme</h3>
-            <div
-              className="rounded-2xl shadow-inner p-4 min-h-[220px] flex flex-col gap-3 border border-gray-200 dark:border-gray-700"
-              style={{ backgroundColor: card.backgroundColor || '#ffffff' }}
-            >
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-600">{card.category}</span>
-              <p className="text-base text-gray-800 dark:text-gray-900 font-medium whitespace-pre-wrap break-words flex-1">
-                {card.text || 'Kart içeriği burada görünecek.'}
-              </p>
-              {card.imageUrl && (
-                <div className="rounded-xl overflow-hidden border border-black/10">
-                  <img src={card.imageUrl} alt="Kart görseli" className="w-full h-40 object-cover" />
+              
+              <div>
+                <label htmlFor="imageFile" className="block text-sm font-medium text-gray-700 dark:text-dark-text">Resim Yükle (Supabase)</label>
+                <div className="mt-1 flex items-center space-x-4">
+                    <input 
+                        type="file" 
+                        id="imageFile" 
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={uploading}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-gray-700 dark:file:text-white" 
+                    />
+                    {uploading && <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>}
                 </div>
-              )}
-            </div>
-          </section>
+                {card.imageUrl && (
+                    <div className="mt-2 relative group w-full h-40 bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden border border-gray-300">
+                        <img src={card.imageUrl} alt="Önizleme" className="w-full h-full object-contain" />
+                        <button type="button" onClick={() => setCard(prev => ({...prev, imageUrl: ''}))} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                            <CloseIcon className="w-3 h-3" />
+                        </button>
+                    </div>
+                )}
+              </div>
+          </div>
 
           {/* Quiz Section */}
-          <section className="rounded-2xl border border-gray-100 dark:border-gray-800 p-4 sm:p-5 bg-gray-50/60 dark:bg-gray-900/40 space-y-4">
-            <div className="flex items-center gap-2">
-              <BrainIcon className="w-5 h-5 text-indigo-500" />
-              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400">Sınav Modu Ayarları</h3>
-            </div>
-
-            <div className="space-y-3">
-              <div>
+          <div className="space-y-4 pt-2">
+             <div className="flex items-center space-x-2">
+                 <BrainIcon className="w-5 h-5 text-indigo-500" />
+                 <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Sınav Modu Ayarları</h3>
+             </div>
+             
+             <div>
                 <label htmlFor="quizQuestion" className="block text-sm font-medium text-gray-700 dark:text-dark-text">Soru Cümlesi</label>
-                <input
-                  type="text"
-                  id="quizQuestion"
-                  name="quizQuestion"
-                  value={card.quizQuestion || ''}
-                  onChange={handleChange}
-                  placeholder="Örn: TBMM İstanbul'da bulunmaktadır."
-                  className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                <input 
+                    type="text" 
+                    id="quizQuestion" 
+                    name="quizQuestion" 
+                    value={card.quizQuestion || ''} 
+                    onChange={handleChange} 
+                    placeholder="Örn: TBMM İstanbul'da bulunmaktadır."
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 dark:text-white" 
                 />
-              </div>
+             </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="quizIsTrue" className="block text-sm font-medium text-gray-700 dark:text-dark-text">Doğru Mu?</label>
-                  <select
-                    id="quizIsTrue"
-                    name="quizIsTrue"
-                    value={String(card.quizIsTrue)}
-                    onChange={handleBooleanChange}
-                    className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
+             <div>
+                <label htmlFor="quizIsTrue" className="block text-sm font-medium text-gray-700 dark:text-dark-text">Doğru Mu?</label>
+                <select 
+                    id="quizIsTrue" 
+                    name="quizIsTrue" 
+                    value={String(card.quizIsTrue)} 
+                    onChange={handleBooleanChange} 
+                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md bg-white dark:bg-gray-700 dark:text-white"
+                >
                     <option value="true">Doğru</option>
                     <option value="false">Yanlış</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-dark-text">Sonuç</label>
-                  <div className={`mt-1 px-3 py-2 rounded-lg text-sm font-semibold ${card.quizIsTrue ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
-                    {card.quizIsTrue ? 'Doğru' : 'Yanlış'}
-                  </div>
-                </div>
-              </div>
+                </select>
+             </div>
 
-              <div>
+             <div>
                 <label htmlFor="quizExplanation" className="block text-sm font-medium text-gray-700 dark:text-dark-text">Açıklama (Yanlışsa doğrusu nedir?)</label>
-                <textarea
-                  id="quizExplanation"
-                  name="quizExplanation"
-                  value={card.quizExplanation || ''}
-                  onChange={handleChange}
-                  rows={4}
-                  placeholder="Örn: Yanlış, TBMM Ankara'dadır."
-                  className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                <textarea 
+                    id="quizExplanation" 
+                    name="quizExplanation" 
+                    value={card.quizExplanation || ''} 
+                    onChange={handleChange} 
+                    rows={2} 
+                    placeholder="Örn: Yanlış, TBMM Ankara'dadır."
+                    className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 dark:text-white"
                 ></textarea>
-              </div>
-            </div>
-          </section>
+             </div>
+          </div>
 
-          <div className="flex flex-col sm:flex-row justify-end gap-3 border-t border-gray-100 dark:border-gray-800 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              İptal
-            </button>
-            <button
-              type="submit"
-              disabled={uploading}
-              className="px-6 py-2 rounded-lg bg-primary text-white hover:bg-secondary dark:bg-accent dark:hover:bg-blue-500 disabled:opacity-50 transition-colors"
-            >
-              {uploading ? 'Yükleniyor...' : 'Kaydet'}
+          <div className="flex justify-end space-x-4 pt-4 border-t dark:border-gray-700 mt-4">
+            <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-100 dark:hover:bg-gray-500">İptal</button>
+            <button type="submit" disabled={uploading} className="px-4 py-2 bg-primary text-white rounded-md hover:bg-secondary dark:bg-accent dark:hover:bg-blue-500 disabled:opacity-50">
+                {uploading ? 'Yükleniyor...' : 'Kaydet'}
             </button>
           </div>
         </form>

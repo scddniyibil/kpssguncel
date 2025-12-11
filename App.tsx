@@ -116,26 +116,22 @@ const safetyTimeout = setTimeout(() => {
 
     initApp();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        (async () => {
-          try {
-            const userRole = await fetchUserProfile(session.user.id, session.user.email!);
-            await Promise.all([
-              fetchCards(userRole),
-              fetchFavorites(session.user.id)
-            ]);
-          } catch(e) {
+        try {
+           const userRole = await fetchUserProfile(session.user.id, session.user.email!);
+           await fetchCards(userRole);
+           await fetchFavorites(session.user.id);
+        } catch(e) {
             console.error("Auth change error", e);
-          } finally {
+        } finally {
             setIsLoading(false);
-          }
-        })();
+        }
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
         setCards([]);
         setFavorites([]);
-        setIsLoading(false);
+        setIsLoading(false); 
       }
     });
 
@@ -213,28 +209,24 @@ const safetyTimeout = setTimeout(() => {
   };
 
   const fetchCards = async (role?: Role) => {
-    try {
-      const { data, error } = await supabase
-        .from('cards')
-        .select('*')
-        .order('created_at', { ascending: false });
+    if (role === Role.ADMIN) {
+        await checkAndSeedDatabase();
+    }
 
-      if (error) {
+    const { data, error } = await supabase
+      .from('cards')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
         console.error("Fetch error:", error);
         setToastMessage("Kartlar çekilirken bir sorun oluştu.");
         return;
-      }
+    }
 
-      if (data) {
-        const mappedCards = data.map(mapDbCardToType);
-        setCards(mappedCards);
-      }
-
-      if (role === Role.ADMIN && data?.length === 0) {
-        checkAndSeedDatabase().catch(e => console.error("Seed error:", e));
-      }
-    } catch (err) {
-      console.error("fetchCards error:", err);
+    if (data) {
+      const mappedCards = data.map(mapDbCardToType);
+      setCards(mappedCards);
     }
   };
 
@@ -262,14 +254,21 @@ const safetyTimeout = setTimeout(() => {
     setAuthError(null);
     setIsLoading(true);
     try {
-        // Sadece e-posta ve şifre ile giriş engellenmesin, Google opsiyonu kaldırıldı
-        if (credentials.userId && credentials.password) {
+        if (credentials.provider) {
+        const { error } = await supabase.auth.signInWithOAuth({ 
+                provider: 'google',
+                options: { 
+                    redirectTo: window.location.origin // Otomatik olarak doğru URL'i alır
+                }
+            });
+            
+            if (error) throw error;
+        } else if (credentials.userId && credentials.password) {
             const { error } = await supabase.auth.signInWithPassword({
-                email: credentials.userId,
+                email: credentials.userId, 
                 password: credentials.password
             });
             if (error) throw error;
-            setIsLoading(false);
         }
     } catch (e: any) {
         setAuthError(e.message);
@@ -317,13 +316,6 @@ const safetyTimeout = setTimeout(() => {
   // --- WARRIOR SAVE LOGIC (Try Every Possible Way) ---
   const saveCardToSupabase = async (payload: any, id?: string) => {
       const query = supabase.from('cards');
-      const PIGGYBACK_DELIMITER = '|||IMG:';
-      
-      // Helper function to remove piggybacked images from text
-      const sanitizeText = (text: string) => {
-          if (!text) return text;
-          return text.split(PIGGYBACK_DELIMITER)[0].trim();
-      };
       
       // If we don't have an image, just save simply
       if (!payload.image_url) {
@@ -333,12 +325,11 @@ const safetyTimeout = setTimeout(() => {
            // But payload passed here is already mixed. Let's act on known keys.
            const cleanPayload: any = {
                category: payload.category,
-               text: sanitizeText(payload.text),
+               text: payload.text,
                background_color: payload.background_color,
                quiz_question: payload.quiz_question,
                quiz_is_true: payload.quiz_is_true,
-               quiz_explanation: sanitizeText(payload.quiz_explanation),
-               image_url: null // ensure existing images are cleared
+               quiz_explanation: payload.quiz_explanation
            };
            
            let op = id ? query.update(cleanPayload).eq('id', id) : query.insert(cleanPayload);
@@ -354,11 +345,11 @@ const safetyTimeout = setTimeout(() => {
       for (const colName of potentialImageCols) {
            const tryPayload: any = {
                category: payload.category,
-               text: sanitizeText(payload.text),
+               text: payload.text,
                background_color: payload.background_color,
                quiz_question: payload.quiz_question,
                quiz_is_true: payload.quiz_is_true,
-               quiz_explanation: sanitizeText(payload.quiz_explanation)
+               quiz_explanation: payload.quiz_explanation
            };
            tryPayload[colName] = payload.image_url;
 
@@ -373,7 +364,8 @@ const safetyTimeout = setTimeout(() => {
       // STRATEGY 2: PIGGYBACK on TEXT
       // If columns failed, try to append URL to the text field.
       // Delimiter used: |||IMG:
-      const hackedText = `${sanitizeText(payload.text)} ${PIGGYBACK_DELIMITER}${payload.image_url}`;
+      const PIGGYBACK_DELIMITER = '|||IMG:';
+      const hackedText = `${payload.text} ${PIGGYBACK_DELIMITER}${payload.image_url}`;
       
       const textFallbackPayload: any = {
            category: payload.category,
@@ -381,7 +373,7 @@ const safetyTimeout = setTimeout(() => {
            background_color: payload.background_color,
            quiz_question: payload.quiz_question,
            quiz_is_true: payload.quiz_is_true,
-           quiz_explanation: sanitizeText(payload.quiz_explanation)
+           quiz_explanation: payload.quiz_explanation
       };
       
       let opText = id ? query.update(textFallbackPayload).eq('id', id) : query.insert(textFallbackPayload);
@@ -392,10 +384,10 @@ const safetyTimeout = setTimeout(() => {
       }
 
       // STRATEGY 3: PIGGYBACK on QUIZ_EXPLANATION (If Text failed due to length)
-      const hackedExplanation = `${sanitizeText(payload.quiz_explanation)} ${PIGGYBACK_DELIMITER}${payload.image_url}`;
+      const hackedExplanation = `${payload.quiz_explanation || ''} ${PIGGYBACK_DELIMITER}${payload.image_url}`;
       const explFallbackPayload: any = {
            category: payload.category,
-           text: sanitizeText(payload.text), // Original text (cleaned)
+           text: payload.text, // Original text
            background_color: payload.background_color,
            quiz_question: payload.quiz_question,
            quiz_is_true: payload.quiz_is_true,

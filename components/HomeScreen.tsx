@@ -81,6 +81,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     await onFetchCategory(cat);
   };
 
+  const handleSaveCard = async (cardData: Omit<Card, 'id'> | Card | Omit<Card, 'id'>[]) => {
+    // Save the card
+    onSaveCard(cardData);
+
+    // If it's a single card (not array), auto-open its category
+    if (!Array.isArray(cardData)) {
+      const category = cardData.category;
+      // Wait a bit for the save to complete, then fetch and open
+      setTimeout(async () => {
+        await handleCategoryClick(category);
+      }, 500);
+    }
+  };
+
   const categoryCardCounts = useMemo(() => {
     const counts: { [key: string]: number } = {};
     CATEGORIES.forEach(cat => {
@@ -227,7 +241,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
         <AdminModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          onSave={onSaveCard}
+          onSave={handleSaveCard}
           cardToEdit={cardToEdit}
         />
       )}

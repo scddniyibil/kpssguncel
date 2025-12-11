@@ -21,9 +21,10 @@ interface HomeScreenProps {
   onDeleteCard: (cardId: string) => void;
   onToggleFavorite: (cardId: string) => void;
   onUpdatePassword: (newPassword: string) => Promise<void>;
+  onFetchCategory: (category: string) => Promise<void>;
 }
 
-const categoryIcons: { [key: string]: React.FC<{className: string}> } = {
+const categoryIcons: { [key: string]: React.FC<{ className: string }> } = {
   'Favoriler': HeartIcon,
   'Tarih': BookIcon,
   'Coğrafya': GlobeIcon,
@@ -42,17 +43,18 @@ const categoryColors = {
 };
 
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ 
-    currentUser, 
-    onLogout, 
-    theme, 
-    toggleTheme,
-    cards,
-    favorites,
-    onSaveCard,
-    onDeleteCard,
-    onToggleFavorite,
-    onUpdatePassword
+const HomeScreen: React.FC<HomeScreenProps> = ({
+  currentUser,
+  onLogout,
+  theme,
+  toggleTheme,
+  cards,
+  favorites,
+  onSaveCard,
+  onDeleteCard,
+  onToggleFavorite,
+  onUpdatePassword,
+  onFetchCategory
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
@@ -62,14 +64,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const handleEdit = (card: Card) => {
     setCardToEdit(card);
-    setViewingCategory(null); 
+    setViewingCategory(null);
     setIsModalOpen(true);
   };
-  
+
   const handleDeleteWithConfirm = (cardId: string) => {
     if (window.confirm('Bu kartı silmek istediğinizden emin misiniz?')) {
       onDeleteCard(cardId);
     }
+  };
+
+  const handleCategoryClick = async (cat: string) => {
+    // Lazy load cards for this category
+    await onFetchCategory(cat);
+    setViewingCategory(cat);
   };
 
   const categoryCardCounts = useMemo(() => {
@@ -83,13 +91,23 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     });
     return counts;
   }, [cards, favorites]);
-  
+
   const cardsForCarousel = useMemo(() => {
+    // If cards is empty BUT we are viewing a category, it implies we fetched it.
+    // However, since we now fetch ONLY the relevant cards into 'cards' state,
+    // we don't really need to filter by category anymore IF the backend only returns that category.
+    // BUT, for safety (in case we change logic later), we can keep filtering or just return all cards.
+    // Given the new logic: `cards` contains ONLY the clicked category (or favorites).
+
+    // Safety check: Filter anyway in case `cards` has mixed content (though it shouldn't).
     if (!viewingCategory) return [];
+
     if (viewingCategory === 'Favoriler') {
-      return cards.filter(card => favorites.includes(card.id));
+      // If we fetched favorites, `cards` should contain them.
+      return cards;
     }
-    return cards.filter(card => card.category === viewingCategory);
+
+    return cards.filter(c => c.category === viewingCategory);
   }, [cards, viewingCategory, favorites]);
 
   return (
@@ -102,36 +120,36 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
             <h1 className="text-xl font-bold text-gray-800 dark:text-white md:hidden">KPSS Kart</h1>
           </div>
           <div className="flex items-center space-x-3 md:space-x-4">
-             <span className="text-sm hidden sm:inline-block text-gray-600 dark:text-dark-text-secondary">
-                 {currentUser?.email} ({currentUser?.role})
-             </span>
-             <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
-             
-             <button 
-                onClick={() => setIsPasswordModalOpen(true)}
-                className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                title="Şifre Değiştir"
-             >
-                <KeyIcon className="w-6 h-6" />
-             </button>
+            <span className="text-sm hidden sm:inline-block text-gray-600 dark:text-dark-text-secondary">
+              {currentUser?.email} ({currentUser?.role})
+            </span>
+            <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
 
-             <button onClick={onLogout} className="px-4 py-2 text-sm bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">Çıkış</button>
+            <button
+              onClick={() => setIsPasswordModalOpen(true)}
+              className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              title="Şifre Değiştir"
+            >
+              <KeyIcon className="w-6 h-6" />
+            </button>
+
+            <button onClick={onLogout} className="px-4 py-2 text-sm bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">Çıkış</button>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto p-4 md:p-8 flex-grow flex flex-col items-center">
-        
+
         <div className="w-full flex justify-center mb-8 animate-fade-in">
-             <button 
-                onClick={() => setIsQuizModalOpen(true)}
-                className="group relative inline-flex items-center justify-center p-0.5 mb-2 mr-2 overflow-hidden text-sm font-medium text-gray-900 rounded-lg group bg-gradient-to-br from-purple-600 to-blue-500 group-hover:from-purple-600 group-hover:to-blue-500 hover:text-white dark:text-white focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 transform hover:scale-105 transition-all duration-300"
-             >
-                <span className="relative px-6 py-3.5 transition-all ease-in duration-75 bg-white dark:bg-gray-900 rounded-md group-hover:bg-opacity-0 flex items-center space-x-2">
-                    <BrainIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400 group-hover:text-white" />
-                    <span className="text-lg font-bold">Sınav Modu'nu Başlat</span>
-                </span>
-             </button>
+          <button
+            onClick={() => setIsQuizModalOpen(true)}
+            className="group relative inline-flex items-center justify-center p-0.5 mb-2 mr-2 overflow-hidden text-sm font-medium text-gray-900 rounded-lg group bg-gradient-to-br from-purple-600 to-blue-500 group-hover:from-purple-600 group-hover:to-blue-500 hover:text-white dark:text-white focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 transform hover:scale-105 transition-all duration-300"
+          >
+            <span className="relative px-6 py-3.5 transition-all ease-in duration-75 bg-white dark:bg-gray-900 rounded-md group-hover:bg-opacity-0 flex items-center space-x-2">
+              <BrainIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400 group-hover:text-white" />
+              <span className="text-lg font-bold">Sınav Modu'nu Başlat</span>
+            </span>
+          </button>
         </div>
 
         <div className="text-center mb-8 animate-fade-in">
@@ -140,67 +158,64 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
         </div>
 
         <div className="w-full grid grid-cols-2 md:grid-cols-3 gap-6 animate-slide-in-up max-w-5xl">
-            {CATEGORIES.map((cat) => {
-              const Icon = categoryIcons[cat];
-              const cardCount = categoryCardCounts[cat];
-              const color = categoryColors[cat] || 'from-gray-500 to-gray-600';
+          {CATEGORIES.map((cat) => {
+            const Icon = categoryIcons[cat];
+            const cardCount = categoryCardCounts[cat];
+            const color = categoryColors[cat] || 'from-gray-500 to-gray-600';
 
-              return (
-                <button
-                    key={cat}
-                    onClick={() => setViewingCategory(cat)}
-                    disabled={cardCount === 0}
-                    className={`
+            return (
+              <button
+                key={cat}
+                onClick={() => handleCategoryClick(cat)}
+                className={`
                         p-6 rounded-2xl flex flex-col justify-between items-center text-white font-bold 
                         shadow-lg transform hover:-translate-y-2 transition-all duration-300
                         bg-gradient-to-br ${color}
-                        disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none
-                        min-h-[160px]
+                        min-h-[160px] cursor-pointer
                     `}
-                >
-                    <div className="flex-grow flex flex-col items-center justify-center">
-                      {Icon && <Icon className="w-12 h-12 mb-3 opacity-90"/>}
-                      <span className="text-lg text-center break-words w-full">{cat}</span>
-                    </div>
-                    <span className="text-sm font-normal mt-2 bg-black/20 px-3 py-1 rounded-full">{cardCount} kart</span>
-                </button>
-              )
-            })}
+              >
+                <div className="flex-grow flex flex-col items-center justify-center">
+                  {Icon && <Icon className="w-12 h-12 mb-3 opacity-90" />}
+                  <span className="text-lg text-center break-words w-full">{cat}</span>
+                </div>
+              </button>
+            )
+          })}
         </div>
       </main>
-      
+
       {viewingCategory && (
-        <CardCarousel 
-            cards={cardsForCarousel}
-            currentUser={currentUser}
-            onClose={() => setViewingCategory(null)}
-            favorites={favorites}
-            onToggleFavorite={onToggleFavorite}
-            onEdit={handleEdit}
-            onDelete={handleDeleteWithConfirm}
-            theme={theme}
+        <CardCarousel
+          cards={cardsForCarousel}
+          currentUser={currentUser}
+          onClose={() => setViewingCategory(null)}
+          favorites={favorites}
+          onToggleFavorite={onToggleFavorite}
+          onEdit={handleEdit}
+          onDelete={handleDeleteWithConfirm}
+          theme={theme}
         />
       )}
 
       {currentUser?.role === Role.ADMIN && (
         <div className="fixed bottom-8 right-8 flex flex-col space-y-4 items-end z-40">
-            <button 
-            onClick={() => { setCardToEdit(null); setIsModalOpen(true); }} 
+          <button
+            onClick={() => { setCardToEdit(null); setIsModalOpen(true); }}
             className="bg-accent text-white p-4 rounded-full shadow-lg hover:bg-secondary transition-transform transform hover:scale-110"
             aria-label="Yeni Kart Ekle"
             title="Yeni Kart Ekle"
-            >
-            <PlusIcon className="w-8 h-8"/>
-            </button>
+          >
+            <PlusIcon className="w-8 h-8" />
+          </button>
         </div>
       )}
 
-      <AIQuizModal 
+      <AIQuizModal
         isOpen={isQuizModalOpen}
         onClose={() => setIsQuizModalOpen(false)}
         cards={cards}
       />
-      
+
       <UpdatePasswordModal
         isOpen={isPasswordModalOpen}
         onClose={() => setIsPasswordModalOpen(false)}
@@ -208,12 +223,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
       />
 
       {currentUser?.role === Role.ADMIN && (
-            <AdminModal 
-                isOpen={isModalOpen} 
-                onClose={() => setIsModalOpen(false)}
-                onSave={onSaveCard}
-                cardToEdit={cardToEdit}
-            />
+        <AdminModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSave={onSaveCard}
+          cardToEdit={cardToEdit}
+        />
       )}
     </div>
   );
